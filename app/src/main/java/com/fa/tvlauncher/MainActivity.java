@@ -13,6 +13,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Outline;
@@ -46,6 +47,7 @@ import android.widget.TextClock;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -93,6 +95,10 @@ public class MainActivity extends Activity {
     private TextView bigName, greeting;
     private final TextView[] pills = new TextView[3];
     private LinearLayout pillRow, menu;
+    private ImageView wallpaperView;
+    private View scrim, band;
+    private Bitmap wallpaperBmp;
+    private long wallpaperStamp = -1;
 
     // ---- datos
     private final List<AppItem> dock = new ArrayList<>();
@@ -150,6 +156,7 @@ public class MainActivity extends Activity {
         super.onResume();
         updateWifi();
         updateGreeting();
+        loadWallpaper();
     }
 
     @Override
@@ -258,6 +265,19 @@ public class MainActivity extends Activity {
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
 
+        // Fondo opcional (se carga desde un archivo; sin archivo queda negro puro).
+        wallpaperView = new ImageView(this);
+        wallpaperView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        wallpaperView.setVisibility(View.GONE);
+        root.addView(wallpaperView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        scrim = new View(this);
+        scrim.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x99000000, 0x59000000, 0xB3000000}));
+        scrim.setVisibility(View.GONE);
+        root.addView(scrim, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
         // Geometría: 4 mosaicos 16:9 por defecto; se encogen si hay más columnas.
         gap = 24 * d;
         pad = 10 * d;
@@ -281,7 +301,7 @@ public class MainActivity extends Activity {
         glow = new GlowView(this);
         content.addView(glow, lp(W, 300 * d, 0, -260 * d));
 
-        View band = new View(this);
+        band = new View(this);
         band.setBackground(rrect(0xFF1C1C1E, 36 * d));
         content.addView(band, lp(bandW, bandH, bandLeft, 0));
 
@@ -308,7 +328,7 @@ public class MainActivity extends Activity {
             AppItem a = grid.get(i);
             int r = i / cols, c = i % cols;
             a.x = bandLeft + bandPad + c * (tileW + gap);
-            a.y = bandH + 36 * d + r * rowStep;
+            a.y = bandH + 64 * d + r * rowStep;
             addTile(a, true);
         }
 
@@ -457,7 +477,7 @@ public class MainActivity extends Activity {
         // La cuadrícula sube: la fila enfocada queda al 60 % de la altura de la pantalla.
         float off = 0;
         if (zone == ZONE_GRID) {
-            float rowAbs = baseY + bandH + 36 * d + gRow * rowStep;
+            float rowAbs = baseY + bandH + 64 * d + gRow * rowStep;
             off = Math.max(0, rowAbs - H * 0.60f);
         }
         content.animate().cancel();
@@ -685,6 +705,50 @@ public class MainActivity extends Activity {
     // =====================================================================
     // Saludo y Wi-Fi
     // =====================================================================
+
+    /**
+     * Fondo opcional: /sdcard/Android/data/com.fa.tvlauncher/files/wallpaper.jpg (o .png).
+     * Se cambia con adb push, sin recompilar. Se reduce al tamaño de pantalla (RGB_565).
+     */
+    private void loadWallpaper() {
+        File dir = getExternalFilesDir(null);
+        File f = null;
+        if (dir != null) {
+            for (String n : new String[]{"wallpaper.jpg", "wallpaper.jpeg", "wallpaper.png"}) {
+                File c = new File(dir, n);
+                if (c.isFile()) { f = c; break; }
+            }
+        }
+        long stamp = f != null ? f.lastModified() + f.length() : 0;
+        if (stamp == wallpaperStamp) return;
+        wallpaperStamp = stamp;
+
+        wallpaperView.setImageDrawable(null);
+        if (wallpaperBmp != null) { wallpaperBmp.recycle(); wallpaperBmp = null; }
+
+        Bitmap bm = null;
+        if (f != null) {
+            try {
+                BitmapFactory.Options o = new BitmapFactory.Options();
+                o.inJustDecodeBounds = true;
+                BitmapFactory.decodeFile(f.getAbsolutePath(), o);
+                int s = 1;
+                while (o.outWidth / (s * 2) >= W && o.outHeight / (s * 2) >= H) s *= 2;
+                o = new BitmapFactory.Options();
+                o.inSampleSize = s;
+                o.inPreferredConfig = Bitmap.Config.RGB_565;
+                bm = BitmapFactory.decodeFile(f.getAbsolutePath(), o);
+            } catch (RuntimeException | OutOfMemoryError e) {
+                bm = null;
+            }
+        }
+        wallpaperBmp = bm;
+        int vis = bm != null ? View.VISIBLE : View.GONE;
+        if (bm != null) wallpaperView.setImageBitmap(bm);
+        wallpaperView.setVisibility(vis);
+        scrim.setVisibility(vis);
+        band.setBackground(rrect(bm != null ? 0xD91C1C1E : 0xFF1C1C1E, 36 * d));
+    }
 
     private void updateGreeting() {
         int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
