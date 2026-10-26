@@ -30,6 +30,8 @@ import android.media.tv.TvInputManager;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
@@ -99,6 +101,7 @@ public class MainActivity extends Activity {
     private View scrim, band;
     private Bitmap wallpaperBmp;
     private long wallpaperStamp = -1;
+    private final Handler handler = new Handler(Looper.getMainLooper());
 
     // ---- datos
     private final List<AppItem> dock = new ArrayList<>();
@@ -140,6 +143,15 @@ public class MainActivity extends Activity {
             @Override public void run() { applyFocus(false); }
         });
 
+        // Al arrancar la TV el almacenamiento puede no estar listo: se reintenta unas pocas
+        // veces (solo si aún no hay fondo cargado), no es un sondeo permanente.
+        final int[] delays = {2000, 5000, 10000, 20000, 40000};
+        for (int dl : delays) {
+            handler.postDelayed(new Runnable() {
+                @Override public void run() { if (wallpaperBmp == null) loadWallpaper(); }
+            }, dl);
+        }
+
         // Si se instala o desinstala una app, se reconstruye (por evento, sin consultas periódicas).
         pkgReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context c, Intent i) { recreate(); }
@@ -160,6 +172,12 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) loadWallpaper();
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
         closeMenu();
@@ -171,6 +189,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        handler.removeCallbacksAndMessages(null);
         if (pkgReceiver != null) unregisterReceiver(pkgReceiver);
     }
 
