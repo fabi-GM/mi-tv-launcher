@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Espacios del dock (4, 5, 6 o 7). La cuadrícula usa el mismo número de columnas. -->
+    <integer name="columns">4</integer>
+
+    <!-- Apps del dock, en orden de izquierda a derecha. Se toman las primeras `columns`
+         que estén instaladas. -->
+    <string-array name="dock_apps">
+        <item>com.google.android.youtube.tv</item>
+        <item>com.netflix.ninja</item>
+        <item>com.spotify.tv.android</item>
+        <item>com.android.vending</item>
+    </string-array>
+
+    <!-- Apps que no quieres ver en la cuadrícula (nombre de paquete). -->
+    <string-array name="hidden_apps">
+        <item>com.example.oculta</item>
+    </string-array>
+
+    <!-- Paquete de la app de TV en vivo para el menú Entradas. -->
+    <string name="live_tv_package">com.google.android.tv</string>
+</resources>

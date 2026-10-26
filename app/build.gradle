@@ -1,0 +1,24 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.fa.tvlauncher'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.fa.tvlauncher"
+        minSdk 26          // Mi TV Stick = Android 9 (SDK 28)
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+// Sin dependencias: solo el framework de Android (menos RAM, menos que falle la compilación).
